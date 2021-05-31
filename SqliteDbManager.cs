@@ -33,6 +33,11 @@ namespace Backend
             return GetConnectionInstance();
         }
 
+        /// <summary>
+        /// Reads data from given query.
+        /// </summary>
+        /// <param name="query">SQL query.</param>
+        /// <returns>Data preserved in a Datatable.</returns>
         public DataTable GetDataByQuery(string query)
         {
             using (var dataAdapter = new SQLiteDataAdapter(query, connection))

@@ -14,18 +14,23 @@ namespace Backend
             Console.WriteLine("Getting DB Connection...");
             Task<List<Tuple<string, int>>> sqliteCountryPopulations = null;
 
-            var db = new SqliteDbManager();
-            DbConnection conn = db.getConnection();
+            DbConnection conn = null;
 
             try
             {
+                var db = new SqliteDbManager();
+                conn = db.getConnection();
+
                 if (conn == null)
                 {
                     Console.Error.WriteLine("Failed to get connection");
+                    // TODO: considered as primary source, so better to throw exception
                 }
-
-                var sqlLiteStatService = new SqlLiteStatService(db);
-                sqliteCountryPopulations = sqlLiteStatService.GetCountryPopulationsAsync();
+                else
+                {
+                    var sqlLiteStatService = new SqlLiteStatService(db);
+                    sqliteCountryPopulations = sqlLiteStatService.GetCountryPopulationsAsync();
+                }
             }
             finally
             {
@@ -38,19 +43,27 @@ namespace Backend
 
             var concreteStatService = new ConcreteStatService();
             var concreteCountryPopulations = concreteStatService.GetCountryPopulationsAsync();
+            List<Tuple<string, int>> results = null;
 
-            Task.WaitAll(sqliteCountryPopulations, concreteCountryPopulations);
+            if (sqliteCountryPopulations == null)
+            {
+                results = concreteCountryPopulations.Result.OrderBy(o => o.Item1).ToList();
+            }
+            else
+            {
+                Task.WaitAll(sqliteCountryPopulations, concreteCountryPopulations);
 
-            var sqliteCountries = sqliteCountryPopulations.Result.Select(s => s.Item1);
-            var filteredConcretePopulations = concreteCountryPopulations.Result.Where(c => !sqliteCountries.Contains(c.Item1));
-            var results = sqliteCountryPopulations.Result.Union(filteredConcretePopulations).OrderBy(o => o.Item1);
+                var sqliteCountries = sqliteCountryPopulations.Result.Select(s => s.Item1);
+                var filteredConcretePopulations = concreteCountryPopulations.Result.Where(c => !sqliteCountries.Contains(c.Item1));
+                results = sqliteCountryPopulations.Result.Union(filteredConcretePopulations).OrderBy(o => o.Item1).ToList();
+            }
+
 
             foreach (var row in results)
             {
                 Console.WriteLine($"Country: {row.Item1.PadRight(35)} population: {row.Item2}");
             }
 
-            Console.WriteLine("all done");
             Console.ReadLine();
         }
     }
